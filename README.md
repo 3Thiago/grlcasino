@@ -14,6 +14,7 @@ Usage
 6. Use `c!stats` to see your stats
 7. Use `c!games` to list current games
 8. Use `c!help` to list commands
+9. Use `c!withdraw <GRLC addr>` to move all your GRLC to the specified address
 
 Documentation
 -------------
@@ -22,7 +23,6 @@ DB looks like:
 
 Table Users:
  - username : String unique,
- - balance : Float
  - wallet : String 
 
 Table History:
