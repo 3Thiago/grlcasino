@@ -22,16 +22,18 @@ Documentation
 DB looks like:
 
 Table Users:
- - username : String unique,
+ - userId: INT unique,
  - wallet : String 
 
 Table History:
- - username: String
+ - userId: INT
  - action : String
 
-Table Games:
- - usernameA : String
- - usernameB : String # Will be null to start with
- - value : float
- - winner : String # null
+Dice Games:
+ - userIdA : INT
+ - userIdB : INT # Will be null to start with
+ - value : float # GRLC value of game
+ - winnerUserId : INT # null
  - created : timestamp
+ - rollA : TEXT
+ - rollB : TEXT
