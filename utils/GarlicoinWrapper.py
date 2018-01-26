@@ -1,19 +1,41 @@
-import subprocess
-import json
+from jsonrpc_requests import Server
+
+s.listaccounts()
+"""
+garlicoin-cli wrapper functions for:
+
+    getaccountaddress "account"
+    getaddressesbyaccount "account"
+    getbalance ( "account" minconf include_watchonly )
+    getnewaddress ( "account" )
+    getreceivedbyaccount "account" ( minconf )
+    listaccounts ( minconf include_watchonly)
+    listreceivedbyaccount ( minconf include_empty include_watchonly)
+    listtransactions ( "account" count skip include_watchonly)
+    move "fromaccount" "toaccount" amount ( minconf "comment" )
+    sendfrom "fromaccount" "toaddress" amount ( minconf "comment" "comment_to" )
+    settxfee amount
+"""
+
 
 
 class GarlicoinWrapper:
-    def __init__(self, exe):
-        self.garlicoin_cli = exe
+    def __init__(self, rpcUrl, rpcUser, rpcPass):
+        self.srv = Server(rpcUrl, auth=(rpcUser, rpcPass))
 
-    def _get_cmd(self, cmds: list):
-        return subprocess.check_output([self.garlicoin_cli] + cmds).decode('utf-8').strip()
+    def get_user_address(self, userId):
+        addr = self.srv.getaddressesbyaccount(userId)[0]
+        if addr == []:
+            return self.generate_address(userId)
+        
+    def generate_address(self, userId):
+        return self.srv.getnewaddress(userId)
 
-    def generate_wallet(self):
-        return self._get_cmd(['getnewaddress'])
+    def get_balance(self, userId):
+        return self.srv.getbalance(userId)
+        
+    def transfer(self, userIdSrc, grlcDest, amount):
+        return self.srv.sendfrom(userIdSrc, grlcDest, amount)
 
-    def get_balance(self, userGrlc):
-        return self._get_cmd(['getbalance', userGrlc])
-
-    def transfer(self, grlcSrc, grlcDest, amount):
-        return self._get_cmd(['sendtoaddress', grlcDest, amount, "grlcasino", "grlcasino"])
+    def move_between_accounts(self, userIdSrc, userIdDest, amount):
+        return self.srv.move(userIdSrc, userIdDest, amount)

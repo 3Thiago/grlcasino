@@ -11,7 +11,7 @@ class DiceCog:
         3: '⚂',
         4: '⚃',
         5: '⚄',
-        6: '⚅'
+        6: '⚅',
     }
     min_buy_in = 0.05
     max_buy_in = 10
@@ -23,12 +23,8 @@ class DiceCog:
         self.conn = bot.conn
 
     @staticmethod
-    def _make_roll():
-        return randint(1, 6), randint(1, 6)
-
-    @staticmethod
-    def _roll_to_string(roll):
-        return "{},{}".format(*roll)
+    def _roll_string():
+        return "{}{}".format(randint(1, 6), randint(1, 6))
 
     @commands.command()
     async def start(self, ctx, *, amount: float):
@@ -46,20 +42,28 @@ class DiceCog:
             await ctx.send(
                 f"{ctx.author.mention}: Games are have a must be between {self.min_buy_in} and {self.max_buy_in} GRLC")
             return
-        balance = self.user_manager.get_balance(ctx.author.id)
-        if True or balance < amount:
+        balance = self.grlc.get_balance(ctx.author.id)
+        if False and balance < amount:
             await ctx.send("{}: You have insufficient GRLC ({})".format(ctx.author.mention, balance))
         else:
+            c = self.conn.cursor()
+            rollA = self._roll_string()
+            rollB = self._roll_string()
+            while rollA == rollB:
+                rollB = self._roll_string()
 
-            rollA = self._make_roll()
-            rollB = self._make_roll()
             c.execute("INSERT INTO dice VALUES (?, ?, ?, ?, ?, ?, ?)",
-                      (ctx.author.id, None, amount, None, datetime.now(), self._roll_to_string(rollA),
-                       self._roll_to_string(rollB)))
+                      (ctx.author.id,
+                       None,
+                       amount,
+                       None,
+                       datetime.now(),
+                       rollA, rollB)
+                      )
             self.conn.commit()
-            msg = "{} has started a game worth {}. Someone else must accept with `$accept {}` to complete the game".format(
+            msg = "{} has started a game worth {}. Someone else must accept with $accept {} to complete the game".format(
                 ctx.author.mention,
-                balance,
+                amount,
                 ctx.author.mention)
             print(msg)
             await ctx.send(msg)
@@ -76,16 +80,37 @@ class DiceCog:
         if user.id == ctx.author.id:
             await ctx.send(f'{ctx.author.mention}: You can\'t accept your own game')
             return
-        c = self.conn.cursor()
         row = self.get_current_game(ctx.author.id)
 
         if row is None:
             await ctx.send(f'{ctx.author.mention}: {user.mention} has no games currently')
             return
         # if the user is not signed up, they can't play
-        player_b_balance = self.user_manager.get_balance(ctx.author.id)
-
-        await ctx.send("Usage is `$accept @userId#1234`. You must have enough coins ")
+        player_b_balance = self.grlc.get_balance(ctx.author.id)
+        if player_b_balance < row[2]:
+            await ctx.send(
+                f'{ctx.author.id} you have insufficient funds to play ({row[2]} GRLC). You have {player_b_balance} ')
+        else:
+            # Play the game!!!!
+            def str2score(score):
+                return sum([int(x) for x in score])
+            def str2emoji(score):
+                return "{}{}".format(self.dice[score[0]], self.dice[score[1]])
+            a_score = str2score(row[5])
+            b_score = str2score(row[6])
+            a_user = ctx.bot.get_user(id)
+            msg = "{} rolled: {}, {} rolled: {}, ".format(
+                a_user.mention,
+                str2emoji(row[5]),
+                ctx.author.mention,
+                str2emoji(row[6])
+            )
+            if a_score > b_score:
+                winner = a_user
+            else:
+                winner = ctx.author
+            msg += "{} wins {} GRLC!".format(winner)
+            await ctx.send(msg)
 
     def get_current_game(self, id):
         c = self.conn.cursor()

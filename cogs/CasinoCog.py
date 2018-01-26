@@ -4,22 +4,18 @@ from discord.ext import commands
 class CasinoCog:
     def __init__(self, bot):
         self.bot = bot
-        self.user_manager = bot.user_manager
         self.grlc = bot.grlc
         self.conn = bot.conn
 
     @commands.command(description='Withdraw all your coins to the specified address')
-    async def withdraw(self, ctx, dest: str):
+    async def withdraw(self, ctx, *, dest: str, amount: float):
         """
         Transfer all your stored coins to the specified GRLC address
         :param ctx:
         :param dest:
         :return:
         """
-        if self.user_manager.get_user(ctx.author.id) is None:
-            await ctx.send(f'{ctx.author.mention} You have no GRLC to withdraw')
-            return
-        result = self.grlc.transfer(dest)
+        result = self.grlc.transfer(ctx.author.id, dest, amount)
         await ctx.send(f'{ctx.author.mention} {result}')
 
     @commands.command()
@@ -29,16 +25,30 @@ class CasinoCog:
         :param ctx:
         :return:
         """
-        await ctx.send(f"Stats for {ctx.author.mention}")
+        wins = 0
+        won_grlc = 0
+        losses = 0
+        lost_grlc = 0
+        user_id = ctx.author.id
+        c = self.conn.cursor()
+        for row in c.execute("SELECT * FROM dice WHERE userIdA = ? or userIdB = ? and winnerUserId NOT NULL", (user_id, user_id)):
+            if user_id == row[3]:
+                wins += 1
+                won_grlc += row[2]
+            else:
+                losses += 1
+                lost_grlc += row[2]
+        earnings = won_grlc - lost_grlc
+        await ctx.send(f"Stats for {ctx.author.mention}:\n```\nWins: {wins}\nLosses: {losses}\nEarnings: {earnings} GRLC\n```")
 
-    @commands.command(description="Show your sending address", pass_context=True)
+    @commands.command(description="Show your sending address")
     async def address(self, ctx):
         """
         Show your sending address
         :param ctx:
         :return:
         """
-        await ctx.send('{} Send Coins to: `{}`'.format(ctx.author.mention, self.user_manager.get_user(ctx.author.id)[1]))
+        await ctx.send('{} Send Coins to: `{}`'.format(ctx.author.mention, self.grlc.get_user_address(ctx.author.id))
 
     @commands.command()
     async def balance(self, ctx):
@@ -47,7 +57,7 @@ class CasinoCog:
         :param ctx:
         :return:
         """
-        balance = self.user_manager.get_balance(ctx.author.id)
+        balance = self.grlc.get_balance(ctx.author.id)
         await ctx.send("{} balance is: {} GRLC".format(ctx.author.mention, balance))
 
     @commands.command(name='reload', hidden=True)
