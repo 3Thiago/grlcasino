@@ -1,5 +1,6 @@
+import discord
 from discord.ext import commands
-
+import asyncio
 
 class CasinoCog:
     def __init__(self, bot):
@@ -32,12 +33,12 @@ class CasinoCog:
         user_id = ctx.author.id
         c = self.conn.cursor()
         for row in c.execute("SELECT * FROM dice WHERE userIdA = ? or userIdB = ? and winnerUserId NOT NULL", (user_id, user_id)):
-            if user_id == row[3]:
+            if user_id == row['winnerUserId']:
                 wins += 1
-                won_grlc += row[2]
+                won_grlc += row['amount']
             else:
                 losses += 1
-                lost_grlc += row[2]
+                lost_grlc += row['amount']
         earnings = won_grlc - lost_grlc
         await ctx.send(f"Stats for {ctx.author.mention}:\n```\nWins: {wins}\nLosses: {losses}\nEarnings: {earnings} GRLC\n```")
 
@@ -48,7 +49,7 @@ class CasinoCog:
         :param ctx:
         :return:
         """
-        await ctx.send('{} Send Coins to: `{}`'.format(ctx.author.mention, self.grlc.get_user_address(ctx.author.id))
+        await ctx.send('{} Send Coins to: `{}`'.format(ctx.author.mention, self.grlc.get_user_address(ctx.author.id)))
 
     @commands.command()
     async def balance(self, ctx):

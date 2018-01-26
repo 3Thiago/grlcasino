@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from random import randint
 from datetime import datetime
-
+import asyncio
 
 class DiceCog:
     dice = {
@@ -18,7 +18,6 @@ class DiceCog:
 
     def __init__(self, bot):
         self.bot = bot
-        self.user_manager = bot.user_manager
         self.grlc = bot.grlc
         self.conn = bot.conn
 
@@ -61,10 +60,7 @@ class DiceCog:
                        rollA, rollB)
                       )
             self.conn.commit()
-            msg = "{} has started a game worth {}. Someone else must accept with $accept {} to complete the game".format(
-                ctx.author.mention,
-                amount,
-                ctx.author.mention)
+            msg = f"{ctx.author.mention} has started a game worth {amount}. Someone else must accept with $accept {ctx.author.mention} to complete the game"
             print(msg)
             await ctx.send(msg)
 
@@ -87,23 +83,22 @@ class DiceCog:
             return
         # if the user is not signed up, they can't play
         player_b_balance = self.grlc.get_balance(ctx.author.id)
-        if player_b_balance < row[2]:
-            await ctx.send(
-                f'{ctx.author.id} you have insufficient funds to play ({row[2]} GRLC). You have {player_b_balance} ')
+        if player_b_balance < row.value:
+            await ctx.send(f'{ctx.author.id} you have insufficient funds to play ({row.value} GRLC). You have {player_b_balance} GRLC')
         else:
             # Play the game!!!!
             def str2score(score):
                 return sum([int(x) for x in score])
             def str2emoji(score):
                 return "{}{}".format(self.dice[score[0]], self.dice[score[1]])
-            a_score = str2score(row[5])
-            b_score = str2score(row[6])
+            a_score = str2score(row['rollA'])
+            b_score = str2score(row['rollB'])
             a_user = ctx.bot.get_user(id)
             msg = "{} rolled: {}, {} rolled: {}, ".format(
                 a_user.mention,
-                str2emoji(row[5]),
+                str2emoji(row['rollA']),
                 ctx.author.mention,
-                str2emoji(row[6])
+                str2emoji(row['rollB'])
             )
             if a_score > b_score:
                 winner = a_user

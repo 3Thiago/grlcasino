@@ -1,6 +1,5 @@
 from jsonrpc_requests import Server
 
-s.listaccounts()
 """
 garlicoin-cli wrapper functions for:
 

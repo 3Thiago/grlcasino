@@ -21,19 +21,26 @@ Documentation
 
 DB looks like:
 
-Table Users:
- - userId: INT unique,
- - wallet : String 
 
-Table History:
+Casino History:
  - userId: INT
  - action : String
 
 Dice Games:
  - userIdA : INT
  - userIdB : INT # Will be null to start with
- - value : float # GRLC value of game
+ - value : REAL # GRLC value of game
  - winnerUserId : INT # null
  - created : timestamp
  - rollA : TEXT
  - rollB : TEXT
+
+lotto_games:
+ - current : INT # Is this the current game?
+ - winnerUserId : INT
+ - drawTime : DATETIME
+ 
+lotto_entries:
+ - userId : INT
+ - amount : REAL
+ - gameId : INT # the rowid of the lotto_game 
