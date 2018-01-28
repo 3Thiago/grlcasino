@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from random import randint
 from numpy.random import choice
+import numpy as np
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 import sqlite3
@@ -25,12 +26,18 @@ class LottoCog:
         conn = sqlite3.connect(self.dbname, detect_types=sqlite3.PARSE_DECLTYPES)
         conn.row_factory = sqlite3.Row
         game = self.get_current_game(conn)
-        print({k:game[k] for k in game.keys()})
+        # print({k:game[k] for k in game.keys()})
         if datetime.now() >= game['drawTime']:
             winnerId, value = self.lotto_winner(conn)
+            if winnerId is None:
+                self.lotto_restart(conn)
+                return
             winnerUser = self.bot.get_user(winnerId)
             self.bot.say("{winnerUser.mention} Congratulations on winning the lottery! You won {value}")
+            self.lotto_restart(conn)
+            
         conn.close()
+        
     def lotto_restart(self, conn):
         """
         Create a game of lotto if none exists,
@@ -48,22 +55,26 @@ class LottoCog:
         entrants = []
         amounts = []
         game = self.get_current_game(conn)
-        for row in c.execute("SELECT * FROM lotto_entries WHERE game = ?",(game['rowid'],)):
+        for row in c.execute("SELECT * FROM lotto_entries WHERE gameId = ?",(game['rowid'],)):
             entrants.append(row['userId'])
             amounts.append(row['amount'])
-        amounts = np.array(amounts)
-        value = amounts.sum()
-        winnerId = choice(entrants, p=value/amounts)
-        c.execute("UPDATE lotto_games SET winnerId = ?", (winnerId,))
-        self.conn.commit()
-        # move the coins from the losers to the winnerId
-        for idx, playerId in enumerate(entrants):
-            if playerId != winnerId:
-                self.grlc.move_between_accounts(playerId, winnerId, amounts[idx])
-        bot_fee = value * self.fee
-        value -= bot_fee
-        self.grlc.move_between_accounts(winnerId, self.bot.accountID, bot_fee)
-        return winnerId, value
+        if len(amounts) > 0:
+            
+            amounts = np.array(amounts)
+            value = amounts.sum()
+            winnerId = choice(entrants, p=value/amounts)
+            c.execute("UPDATE lotto_games SET winnerId = ?", (winnerId,))
+            self.conn.commit()
+            # move the coins from the losers to the winnerId
+            for idx, playerId in enumerate(entrants):
+                if playerId != winnerId:
+                    self.grlc.move_between_accounts(playerId, winnerId, amounts[idx])
+            bot_fee = value * self.fee
+            value -= bot_fee
+            self.grlc.move_between_accounts(winnerId, self.bot.accountID, bot_fee)
+            return winnerId, value
+        else:
+           return None, 0
 
     @commands.command()
     async def enterlotto(self, ctx, *, amount: float):

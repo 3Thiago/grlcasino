@@ -23,18 +23,20 @@ class GarlicoinWrapper:
         self.srv = Server(rpcUrl, auth=(rpcUser, rpcPass))
 
     def get_user_address(self, userId):
-        addr = self.srv.getaddressesbyaccount(userId)[0]
-        if addr == []:
-            return self.generate_address(userId)
+        addresses = self.srv.getaddressesbyaccount(str(userId))
+        if addresses == []:
+            return self.generate_address(str(userId))
+        else:
+            return addresses[0]
         
     def generate_address(self, userId):
-        return self.srv.getnewaddress(userId)
+        return self.srv.getnewaddress(str(userId))
 
     def get_balance(self, userId):
-        return self.srv.getbalance(userId)
+        return self.srv.getbalance(str(userId))
         
     def transfer(self, userIdSrc, grlcDest, amount):
-        return self.srv.sendfrom(userIdSrc, grlcDest, amount)
+        return self.srv.sendfrom(str(userIdSrc), grlcDest, amount)
 
     def move_between_accounts(self, userIdSrc, userIdDest, amount):
-        return self.srv.move(userIdSrc, userIdDest, amount)
+        return self.srv.move(str(userIdSrc), str(userIdDest), amount)

@@ -60,7 +60,7 @@ class DiceCog:
                        rollA, rollB)
                       )
             self.conn.commit()
-            msg = f"{ctx.author.mention} has started a game worth {amount}. Someone else must accept with $accept {ctx.author.mention} to complete the game"
+            msg = f"{ctx.author.mention} has started a game worth {amount}. Someone else must accept with '$accept {ctx.author.mention}' to complete the game"
             print(msg)
             await ctx.send(msg)
 
