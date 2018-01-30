@@ -8,16 +8,18 @@ class CasinoCog:
         self.grlc = bot.grlc
         self.conn = bot.conn
 
-    @commands.command(description='Withdraw all your coins to the specified address')
-    async def withdraw(self, ctx, *, dest: str, amount: float):
+    @commands.command()
+    async def withdraw(self, ctx):
         """
-        Transfer all your stored coins to the specified GRLC address
+        Transfer specified coins to address: $withdraw grlcaddress 0.5
         :param ctx:
-        :param dest:
+        :param dest: the GRLC address to send to
+        :param: amount: the amount of GRLC to withdraw
         :return:
         """
-        result = self.grlc.transfer(ctx.author.id, dest, amount)
-        await ctx.send(f'{ctx.author.mention} {result}')
+        _, dest, amount = ctx.message.content.split(' ')
+        result = self.grlc.transfer(ctx.author.id, dest, float(amount))
+        await ctx.send(f'{ctx.author.mention} withdrew {amount}: https://explorer.grlc-bakery.fun/tx/{result}')
 
     @commands.command()
     async def stats(self, ctx):
@@ -32,13 +34,15 @@ class CasinoCog:
         lost_grlc = 0
         user_id = ctx.author.id
         c = self.conn.cursor()
-        for row in c.execute("SELECT * FROM dice WHERE userIdA = ? or userIdB = ? and winnerUserId NOT NULL", (user_id, user_id)):
+        for row in c.execute("SELECT * FROM dice WHERE (userIdA = ? or userIdB = ?)", (user_id, user_id)):
+            if row['winnerUserId'] is None:
+                continue
             if user_id == row['winnerUserId']:
                 wins += 1
-                won_grlc += row['amount']
+                won_grlc += row['value']
             else:
                 losses += 1
-                lost_grlc += row['amount']
+                lost_grlc += row['value']
         earnings = won_grlc - lost_grlc
         await ctx.send(f"Stats for {ctx.author.mention}:\n```\nWins: {wins}\nLosses: {losses}\nEarnings: {earnings} GRLC\n```")
 

@@ -85,7 +85,7 @@ class LottoCog:
         """
         # check if the user already has a game in progress
         current_game = self.get_current_game(self.conn)
-        if current_game is not None:
+        if current_game is None:
             await ctx.send(f'{ctx.author.mention}: There\'s no lottery running at the moment')
             return
         if amount <= self.min_buy_in and amount > self.max_buy_in:
@@ -113,14 +113,14 @@ class LottoCog:
         game = self.get_current_game()
         total = 0
         c = self.conn.cursor()
-        for row in conn.execute("SELECT * FROM lotto_entries WHERE game = ?",(game['rowid'],)):
+        for row in c.execute("SELECT * FROM main.lotto_entries WHERE game = ?", (game['rowid'],)):
             total += row['amount']
         msg = "Current lottery has a pot of {} and will be draw in {}".format(total, datetime.now() - game.drawtime)
         await ctx.send(msg)
  
     def get_current_game(self, conn):
         c = conn.cursor()
-        c.execute("SELECT rowid, * FROM lotto_games WHERE current = 1")
+        c.execute("SELECT rowid, * FROM main.lotto_games WHERE current = 1")
         game = c.fetchone()
         if game is None:
             game = self.lotto_restart(conn)

@@ -40,7 +40,7 @@ grlc = GarlicoinWrapper(conf['rpcUrl'], conf['rpcUser'], conf['rpcPass'])
 bot.conn = conn
 bot.grlc = grlc
 bot.dbname = db_name
-bot.accountId = "\"\""
+bot.accountId = conf['botId']
 
 
 @bot.event
@@ -50,7 +50,11 @@ async def on_ready():
     print(f'\n\nLogged in as: {bot.user.name} - {bot.user.id}\nVersion: {discord.__version__}\n')
 
 
-extensions = ['cogs.DiceCog', 'cogs.CasinoCog', 'cogs.LottoCog']
+extensions = [
+    'cogs.DiceCog',
+    'cogs.CasinoCog',
+    # 'cogs.LottoCog'
+]
 if __name__ == "__main__":
 
     for extension in extensions:

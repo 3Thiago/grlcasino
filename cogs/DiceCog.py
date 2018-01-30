@@ -6,12 +6,12 @@ import asyncio
 
 class DiceCog:
     dice = {
-        1: '⚀',
-        2: '⚁',
-        3: '⚂',
-        4: '⚃',
-        5: '⚄',
-        6: '⚅',
+        '1': '⚀',
+        '2': '⚁',
+        '3': '⚂',
+        '4': '⚃',
+        '5': '⚄',
+        '6': '⚅',
     }
     min_buy_in = 0.05
     max_buy_in = 10
@@ -63,7 +63,19 @@ class DiceCog:
             msg = f"{ctx.author.mention} has started a game worth {amount}. Someone else must accept with '$accept {ctx.author.mention}' to complete the game"
             print(msg)
             await ctx.send(msg)
-
+    @commands.command()
+    async def current(self, ctx):
+        """
+        List current games
+        :param ctx:
+        :return:
+        """
+        c = self.conn.cursor()
+        msg = "Current games are:\n"
+        for row in c.execute("SELECT * FROM main.dice WHERE winnerUserId IS NULL"):
+            user = self.bot.get_user(row['userIdA'])
+            msg += f"{user.mention} {row['value']}\n"
+        await ctx.send(msg)
     @commands.command()
     async def accept(self, ctx, *, user: discord.User):
         """
@@ -76,24 +88,29 @@ class DiceCog:
         if user.id == ctx.author.id:
             await ctx.send(f'{ctx.author.mention}: You can\'t accept your own game')
             return
-        row = self.get_current_game(ctx.author.id)
+        row = self.get_current_game(user.id)
 
         if row is None:
             await ctx.send(f'{ctx.author.mention}: {user.mention} has no games currently')
             return
         # if the user is not signed up, they can't play
+        print(row.keys())
         player_b_balance = self.grlc.get_balance(ctx.author.id)
-        if player_b_balance < row.value:
-            await ctx.send(f'{ctx.author.id} you have insufficient funds to play ({row.value} GRLC). You have {player_b_balance} GRLC')
+        if player_b_balance < row['value']:
+            await ctx.send(f'{ctx.author.mention} you have insufficient funds to play ({row["value"]} GRLC). You have {player_b_balance} GRLC')
         else:
+
             # Play the game!!!!
+
+            # put the playerB in there
+
             def str2score(score):
                 return sum([int(x) for x in score])
             def str2emoji(score):
                 return "{}{}".format(self.dice[score[0]], self.dice[score[1]])
             a_score = str2score(row['rollA'])
             b_score = str2score(row['rollB'])
-            a_user = ctx.bot.get_user(id)
+            a_user = ctx.bot.get_user(row['userIdA'])
             msg = "{} rolled: {}, {} rolled: {}, ".format(
                 a_user.mention,
                 str2emoji(row['rollA']),
@@ -102,14 +119,22 @@ class DiceCog:
             )
             if a_score > b_score:
                 winner = a_user
+                loser = ctx.author
             else:
                 winner = ctx.author
-            msg += "{} wins {} GRLC!".format(winner)
+                loser = a_user
+
+            c = self.conn.cursor()
+            c.execute("UPDATE main.dice SET userIdB = ?, winnerUserId = ? WHERE userIdA = ? AND winnerUserId is NULL",
+                      (ctx.author.id, winner.id, user.id))
+            self.conn.commit()
+            self.grlc.move_between_accounts(loser.id, winner.id, row['value'])
+            msg += "{} wins {} GRLC!".format(winner.mention, row['value'])
             await ctx.send(msg)
 
     def get_current_game(self, id):
         c = self.conn.cursor()
-        c.execute("SELECT * FROM dice WHERE userIdA = ? AND winnerUserId IS NULL", (id,))
+        c.execute("SELECT * FROM main.dice WHERE userIdA = ? AND winnerUserId IS NULL", (id,))
         return c.fetchone()
 
 

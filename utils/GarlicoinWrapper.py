@@ -24,7 +24,7 @@ class GarlicoinWrapper:
 
     def get_user_address(self, userId):
         addresses = self.srv.getaddressesbyaccount(str(userId))
-        if addresses == []:
+        if not addresses:
             return self.generate_address(str(userId))
         else:
             return addresses[0]
