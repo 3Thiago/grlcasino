@@ -32,7 +32,11 @@ if not os.path.exists(db_name):
     print("Building DB")
     init_db()
 
-bot = commands.Bot(command_prefix='$', description='Play Casino Games with GRLC')
+bot = commands.Bot(command_prefix='$',
+                   description='Play Casino Games with GRLC. Put $ before commands\n'
+                               'This bot will manage your coins for you and cost no network fees'
+                               'until you withdraw your GRLC. You can think of it as an online wallet\n'
+                               'Use $address to get an address and start playing!', )
 conn = sqlite3.connect(db_name, detect_types=sqlite3.PARSE_DECLTYPES)
 conn.row_factory = sqlite3.Row
 grlc = GarlicoinWrapper(conf['rpcUrl'], conf['rpcUser'], conf['rpcPass'])
@@ -41,7 +45,7 @@ bot.conn = conn
 bot.grlc = grlc
 bot.dbname = db_name
 bot.bot_id = conf['botId']
-bot.game_fee = float(conf['botFee'])
+bot.bot_fee = float(conf['botFee'])
 
 
 @bot.event

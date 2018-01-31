@@ -97,7 +97,7 @@ class DiceCog:
             await ctx.send(f'{ctx.author.mention}: {user.mention} has no games currently')
             return
         # if the user is not signed up, they can't play
-        print(row.keys())
+        # print(row.keys())
         player_b_balance = self.grlc.get_balance(ctx.author.id)
         if player_b_balance < row['value']:
             await ctx.send(
@@ -143,9 +143,20 @@ class DiceCog:
             msg += "{} wins {} GRLC!".format(winner.mention, row['value'])
             await ctx.send(msg)
 
+    @commands.command()
+    async def cancel(self, ctx):
+        """
+        Cancel your current game
+        :param ctx:
+        :return:
+        """
+        game = self.get_current_game(ctx.author.id)
+        c = self.conn.cursor("DELETE FROM main.dice WHERE rowid = ?", (game['rowid'],))
+        await ctx.send(f"{ctx.author.mention} cancelled game worth {game['value']}")
+
     def get_current_game(self, id):
         c = self.conn.cursor()
-        c.execute("SELECT * FROM main.dice WHERE userIdA = ? AND winnerUserId IS NULL", (id,))
+        c.execute("SELECT rowid, * FROM main.dice WHERE userIdA = ? AND winnerUserId IS NULL", (id,))
         return c.fetchone()
 
 
