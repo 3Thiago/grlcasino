@@ -40,7 +40,8 @@ grlc = GarlicoinWrapper(conf['rpcUrl'], conf['rpcUser'], conf['rpcPass'])
 bot.conn = conn
 bot.grlc = grlc
 bot.dbname = db_name
-bot.accountId = conf['botId']
+bot.bot_id = conf['botId']
+bot.game_fee = float(conf['botFee'])
 
 
 @bot.event

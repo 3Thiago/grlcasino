@@ -4,6 +4,7 @@ from random import randint
 from datetime import datetime
 import asyncio
 
+
 class DiceCog:
     dice = {
         '1': '⚀',
@@ -63,6 +64,7 @@ class DiceCog:
             msg = f"{ctx.author.mention} has started a game worth {amount}. Someone else must accept with '$accept {ctx.author.mention}' to complete the game"
             print(msg)
             await ctx.send(msg)
+
     @commands.command()
     async def current(self, ctx):
         """
@@ -76,6 +78,7 @@ class DiceCog:
             user = self.bot.get_user(row['userIdA'])
             msg += f"{user.mention} {row['value']}\n"
         await ctx.send(msg)
+
     @commands.command()
     async def accept(self, ctx, *, user: discord.User):
         """
@@ -97,7 +100,8 @@ class DiceCog:
         print(row.keys())
         player_b_balance = self.grlc.get_balance(ctx.author.id)
         if player_b_balance < row['value']:
-            await ctx.send(f'{ctx.author.mention} you have insufficient funds to play ({row["value"]} GRLC). You have {player_b_balance} GRLC')
+            await ctx.send(
+                f'{ctx.author.mention} you have insufficient funds to play ({row["value"]} GRLC). You have {player_b_balance} GRLC')
         else:
 
             # Play the game!!!!
@@ -106,8 +110,10 @@ class DiceCog:
 
             def str2score(score):
                 return sum([int(x) for x in score])
+
             def str2emoji(score):
                 return "{}{}".format(self.dice[score[0]], self.dice[score[1]])
+
             a_score = str2score(row['rollA'])
             b_score = str2score(row['rollB'])
             a_user = ctx.bot.get_user(row['userIdA'])
@@ -128,7 +134,12 @@ class DiceCog:
             c.execute("UPDATE main.dice SET userIdB = ?, winnerUserId = ? WHERE userIdA = ? AND winnerUserId is NULL",
                       (ctx.author.id, winner.id, user.id))
             self.conn.commit()
-            self.grlc.move_between_accounts(loser.id, winner.id, row['value'])
+            # bot takes a 0.8% fee from both users before,
+            # then the game amount is moved from the loser to winner
+            fee = row['value'] * self.bot.bot_fee
+            self.grlc.move_between_accounts(loser.id, self.bot.bot_id, fee)
+            self.grlc.move_between_accounts(winner.id, self.bot.bot_id, fee)
+            self.grlc.move_between_accounts(loser.id, winner.id, row['value'] - fee)
             msg += "{} wins {} GRLC!".format(winner.mention, row['value'])
             await ctx.send(msg)
 
