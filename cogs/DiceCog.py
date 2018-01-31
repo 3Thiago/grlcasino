@@ -28,7 +28,7 @@ class DiceCog:
     @commands.command()
     async def start(self, ctx, *, amount: float):
         """
-        Start a dicegame, another player must accept it
+        Start a dicegame for a specified amount: $start 0.75
         :param message:
         :return:
         """
@@ -79,7 +79,7 @@ class DiceCog:
     @commands.command()
     async def accept(self, ctx, *, user: discord.User):
         """
-        Accept the current dice game of the specified player
+        Accept a game from another player: $accept @peace#1234
         :param ctx:
         :param user:
         :return:

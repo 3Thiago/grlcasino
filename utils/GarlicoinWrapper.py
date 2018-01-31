@@ -17,10 +17,10 @@ garlicoin-cli wrapper functions for:
 """
 
 
-
 class GarlicoinWrapper:
     def __init__(self, rpcUrl, rpcUser, rpcPass):
         self.srv = Server(rpcUrl, auth=(rpcUser, rpcPass))
+        print(f"{rpcUrl}: {rpcUser}:{rpcPass}")
 
     def get_user_address(self, userId):
         addresses = self.srv.getaddressesbyaccount(str(userId))
@@ -28,13 +28,13 @@ class GarlicoinWrapper:
             return self.generate_address(str(userId))
         else:
             return addresses[0]
-        
+
     def generate_address(self, userId):
         return self.srv.getnewaddress(str(userId))
 
     def get_balance(self, userId):
         return self.srv.getbalance(str(userId))
-        
+
     def transfer(self, userIdSrc, grlcDest, amount):
         return self.srv.sendfrom(str(userIdSrc), grlcDest, amount)
 
