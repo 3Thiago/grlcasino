@@ -34,7 +34,7 @@ if not os.path.exists(db_name):
 
 bot = commands.Bot(command_prefix='$',
                    description='Play Casino Games with GRLC. Put $ before commands\n'
-                               'This bot will manage your coins for you and cost no network fees'
+                               'This bot will manage your coins for you and cost no network fees \n'
                                'until you withdraw your GRLC. You can think of it as an online wallet\n'
                                'Use $address to get an address and start playing!', )
 conn = sqlite3.connect(db_name, detect_types=sqlite3.PARSE_DECLTYPES)
@@ -58,7 +58,8 @@ async def on_ready():
 extensions = [
     'cogs.DiceCog',
     'cogs.CasinoCog',
-    # 'cogs.LottoCog'
+    # 'cogs.LottoCog',
+    'cogs.TwoUpCog'
 ]
 if __name__ == "__main__":
 

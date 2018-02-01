@@ -16,6 +16,7 @@ class DiceCog:
     }
     min_buy_in = 0.05
     max_buy_in = 10
+    channel_id = 405191547357757442
 
     def __init__(self, bot):
         self.bot = bot
@@ -33,19 +34,23 @@ class DiceCog:
         :param message:
         :return:
         """
+        if ctx.message.channel.id != self.channel_id:
+            return
         # check if the user already has a game in progress
         current_game = self.get_current_game(ctx.author.id)
         if current_game is not None:
             await ctx.send(f'{ctx.author.mention}: Someone must accept your previous game before you can start another')
             return
         if amount <= self.min_buy_in and amount > self.max_buy_in:
-            await ctx.send(
-                f"{ctx.author.mention}: Games are have a must be between {self.min_buy_in} and {self.max_buy_in} GRLC")
+            await ctx.send(f"{ctx.author.mention}: Games must be between {self.min_buy_in} and {self.max_buy_in} GRLC")
             return
         balance = self.grlc.get_balance(ctx.author.id)
-        if False and balance < amount:
-            await ctx.send("{}: You have insufficient GRLC ({})".format(ctx.author.mention, balance))
+        fee = amount * self.bot.bot_fee
+
+        if balance <= amount + fee:
+            await ctx.send("{}: You have insufficient GRLC ({} + {} fee)".format(ctx.author.mention, balance, fee))
         else:
+            self.grlc.move_between_accounts(ctx.author.id, self.bot.bot_id, fee + amount)
             c = self.conn.cursor()
             rollA = self._roll_string()
             rollB = self._roll_string()
@@ -72,6 +77,8 @@ class DiceCog:
         :param ctx:
         :return:
         """
+        if ctx.message.channel.id != self.channel_id:
+            return
         c = self.conn.cursor()
         msg = "Current games are:\n"
         for row in c.execute("SELECT * FROM main.dice WHERE winnerUserId IS NULL"):
@@ -87,6 +94,8 @@ class DiceCog:
         :param user:
         :return:
         """
+        if ctx.message.channel.id != self.channel_id:
+            return
         # get the game row for the other user where there is no winner
         if user.id == ctx.author.id:
             await ctx.send(f'{ctx.author.mention}: You can\'t accept your own game')
@@ -99,15 +108,13 @@ class DiceCog:
         # if the user is not signed up, they can't play
         # print(row.keys())
         player_b_balance = self.grlc.get_balance(ctx.author.id)
-        if player_b_balance < row['value']:
+        fee = row['value'] * self.bot.bot_fee
+        if player_b_balance < row['value'] + fee:
             await ctx.send(
-                f'{ctx.author.mention} you have insufficient funds to play ({row["value"]} GRLC). You have {player_b_balance} GRLC')
+                f'{ctx.author.mention} you have insufficient funds to play ({row["value"]} GRLC + {fee} fee). You have {player_b_balance} GRLC')
         else:
-
             # Play the game!!!!
-
             # put the playerB in there
-
             def str2score(score):
                 return sum([int(x) for x in score])
 
@@ -136,10 +143,9 @@ class DiceCog:
             self.conn.commit()
             # bot takes a 0.8% fee from both users before,
             # then the game amount is moved from the loser to winner
-            fee = row['value'] * self.bot.bot_fee
-            self.grlc.move_between_accounts(loser.id, self.bot.bot_id, fee)
-            self.grlc.move_between_accounts(winner.id, self.bot.bot_id, fee)
-            self.grlc.move_between_accounts(loser.id, winner.id, row['value'] - fee)
+
+            self.grlc.move_between_accounts(ctx.author.id, self.bot.bot_id, fee + row['value'])
+            self.grlc.move_between_accounts(self.bot_id, winner.id, row['value'])
             msg += "{} wins {} GRLC!".format(winner.mention, row['value'])
             await ctx.send(msg)
 
@@ -151,8 +157,15 @@ class DiceCog:
         :return:
         """
         game = self.get_current_game(ctx.author.id)
-        c = self.conn.cursor("DELETE FROM main.dice WHERE rowid = ?", (game['rowid'],))
-        await ctx.send(f"{ctx.author.mention} cancelled game worth {game['value']}")
+        if game is None:
+            await ctx.send(f"{ctx.author.id} you have no game to cancel")
+            return
+        c = self.conn.cursor()
+        c.execute("DELETE FROM main.dice WHERE rowid = ?", (game['rowid'],))
+        self.conn.commit()
+        fee = game['value'] * self.bot.bot_fee
+        self.grlc.move_between_accounts(self.bot.bot_id, ctx.author.id, fee + game['value'])
+        await ctx.send(f"{ctx.author.mention} cancelled and refunded game worth {game['value'] + {fee}}")
 
     def get_current_game(self, id):
         c = self.conn.cursor()

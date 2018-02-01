@@ -20,7 +20,6 @@ garlicoin-cli wrapper functions for:
 class GarlicoinWrapper:
     def __init__(self, rpcUrl, rpcUser, rpcPass):
         self.srv = Server(rpcUrl, auth=(rpcUser, rpcPass))
-        print(f"{rpcUrl}: {rpcUser}:{rpcPass}")
 
     def get_user_address(self, userId):
         addresses = self.srv.getaddressesbyaccount(str(userId))

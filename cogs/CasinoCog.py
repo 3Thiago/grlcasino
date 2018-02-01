@@ -3,6 +3,7 @@ from discord.ext import commands
 import asyncio
 
 class CasinoCog:
+    channel_id = 408431681305837570
     def __init__(self, bot):
         self.bot = bot
         self.grlc = bot.grlc
@@ -17,7 +18,12 @@ class CasinoCog:
         :param: amount: the amount of GRLC to withdraw
         :return:
         """
-        _, dest, amount = ctx.message.content.split(' ')
+        try:
+            _, dest, amount = ctx.message.content.split(' ')
+        except ValueError:
+            await ctx.send(f"{ctx.author.mention} usage is: $withdraw Grlcaddress amount")
+            return
+
         result = self.grlc.transfer(ctx.author.id, dest, float(amount))
         await ctx.send(f'{ctx.author.mention} withdrew {amount}: https://explorer.grlc-bakery.fun/tx/{result}')
 
@@ -56,12 +62,31 @@ class CasinoCog:
         await ctx.send('{} Send Coins to: `{}`'.format(ctx.author.mention, self.grlc.get_user_address(ctx.author.id)))
 
     @commands.command()
+    async def transfer(self, ctx, user: discord.User, amount: float):
+        """
+        Transfer to another player with a specified amount
+        :param ctx:
+        :return:
+        """
+        balance = self.grlc.get_balance(ctx.author.id)
+        if amount <= 0:
+            await ctx.send(f"{ctx.author.mention} you must transfer more than 0 GRLC")
+            return
+        if balance <= amount:
+            await ctx.send(f"{ctx.author.mention} you have insufficient funds ({balance} GRLC)")
+        else:
+            self.grlc.move_between_accounts(ctx.author.id, user.id, amount)
+            await ctx.send(f"{ctx.author.mention} moved {amount} to {user.mention}")
+
+    @commands.command()
     async def balance(self, ctx):
         """
         Display your balance
         :param ctx:
         :return:
         """
+        if ctx.message.channel.id != self.channel_id:
+            return
         balance = self.grlc.get_balance(ctx.author.id)
         await ctx.send("{} balance is: {} GRLC".format(ctx.author.mention, balance))
 
@@ -70,7 +95,8 @@ class CasinoCog:
     async def cog_reload(self, ctx, *, cog: str):
         """Command which Reloads a Module.
         Remember to use dot path. e.g: cogs.owner"""
-
+        await ctx.message.delete()
+        cog = "cogs." + cog
         try:
             self.bot.unload_extension(cog)
             self.bot.load_extension(cog)
