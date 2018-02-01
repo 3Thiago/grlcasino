@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 from random import choice
-from datetime import datetime
 import asyncio
 
 
@@ -23,7 +22,8 @@ class TwoUpCog:
     @staticmethod
     def _roll_string():
         sides = "HT"
-        return "{}{}".format(choice(sides), choice(sides))
+        msg = "{}{}".format(choice(sides), choice(sides))
+        return ''.join(sorted(msg))
 
     @commands.command(aliases=['TH'])
     async def HT(self, ctx, amount: float):
@@ -35,6 +35,7 @@ class TwoUpCog:
         """
 
         await self._do_bet(ctx, amount, 'HT')
+
     @commands.command()
     async def HH(self, ctx, amount: float):
         """
@@ -45,6 +46,7 @@ class TwoUpCog:
         """
 
         await self._do_bet(ctx, amount, 'HH')
+
     @commands.command()
     async def TT(self, ctx, amount: float):
         """
@@ -64,7 +66,7 @@ class TwoUpCog:
         """
         game = self.get_current_game()
         c = self.conn.cursor()
-        c.execute("SELECT rowid, * FROM twoup_entries WHERE gameId = ?", (game['rowid'],))
+        c.execute("SELECT rowid, * FROM twoup_entries WHERE gameId = ? AND userId = ?", (game['rowid'], ctx.author.id))
         if c.fetchone() is not None:
             await ctx.send(f"{ctx.author.mention} only one bet per game please")
             return
@@ -78,7 +80,7 @@ class TwoUpCog:
 
         if game is None:
             await ctx.send(f"{ctx.author.mention} There's no game running right now. Start one with `$twoup`")
-        if amount <= self.min_buy_in and amount > self.max_buy_in:
+        if amount <= self.min_buy_in or amount > self.max_buy_in:
             await ctx.send(f"{ctx.author.mention}: Games must be between {self.min_buy_in} and {self.max_buy_in} GRLC")
             return
         balance = self.grlc.get_balance(ctx.author.id)
@@ -113,21 +115,25 @@ class TwoUpCog:
         print(msg)
         await ctx.send(msg)
         await asyncio.sleep(30)
+        await self.draw_winner(ctx, roll, rowid)
+
+    async def draw_winner(self, ctx, roll, rowid):
         # draw the winners
+        c = self.conn.cursor()
         c.execute("UPDATE main.twoup SET done = 1 WHERE rowid = ?", (rowid,))
         self.conn.commit()
-        roll = ''.join(sorted(roll))
         out = f"Result of the game is: {roll}, results are:\n"
         for row in c.execute("SELECT rowid, * FROM twoup_entries WHERE gameId = ?", (rowid,)):
             user = self.bot.get_user(row['userId'])
             value = row['amount']
             if row['bet'] == roll:
-                outcome = ":white_check_mark: wins"
+                outcome = "wins"
+                emoji = ":white_check_mark:"
+                self.grlc.move_between_accounts(self.bot.bot_id, row['userId'], row['amount'] * 2)
             else:
-                outcome = ":x: loses"
-            out += f"{user.mention} bet: {row['bet']} {outcome} {value} GRLC\n"
-            self.grlc.move_between_accounts(self.bot.bot_id, row['userId'], row['amount'] * 2)
-
+                outcome = "loses"
+                emoji = ":x:"
+            out += f"{user.mention} bet: {row['bet']} {outcome} {value} GRLC {emoji}\n"
         await ctx.send(out)
 
     def get_current_game(self):

@@ -85,10 +85,10 @@ class CasinoCog:
         :param ctx:
         :return:
         """
-        if ctx.message.channel.id != self.channel_id:
-            return
+        channel = self.bot.get_channel(self.channel_id)
         balance = self.grlc.get_balance(ctx.author.id)
-        await ctx.send("{} balance is: {} GRLC".format(ctx.author.mention, balance))
+        await ctx.message.delete()
+        await channel.send("{} balance is: {} GRLC :grlc:".format(ctx.author.mention, balance))
 
     @commands.command(name='reload', hidden=True)
     @commands.is_owner()

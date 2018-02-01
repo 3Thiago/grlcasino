@@ -20,8 +20,7 @@ def init_db():
     c = conn.cursor()
     for i in ["CREATE TABLE main.history (userId INT not null, action TEXT not null)",
               "CREATE TABLE main.dice (userIdA INT, userIdB INT, value REAL, winnerUserId INT, created TIMESTAMP not null, rollA TEXT, rollB TEXT)",
-              "CREATE TABLE main.lotto_games (current INT, winnerUserId INT, drawTime TIMESTAMP)",
-              "CREATE TABLE main.lotto_entries (userId INT , amount REAL, gameId INT)"]:
+              ""]:
         print(i)
         c.execute(i)
     conn.commit()
@@ -59,7 +58,8 @@ extensions = [
     'cogs.DiceCog',
     'cogs.CasinoCog',
     # 'cogs.LottoCog',
-    'cogs.TwoUpCog'
+    'cogs.TwoUpCog',
+    'cogs.CoinTossCog'
 ]
 if __name__ == "__main__":
 

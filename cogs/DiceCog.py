@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from random import randint
+from random import randint, choice
 from datetime import datetime
 import asyncio
 
@@ -14,7 +14,7 @@ class DiceCog:
         '5': '⚄',
         '6': '⚅',
     }
-    min_buy_in = 0.05
+    min_buy_in = 0.01
     max_buy_in = 10
     channel_id = 405191547357757442
 
@@ -41,7 +41,7 @@ class DiceCog:
         if current_game is not None:
             await ctx.send(f'{ctx.author.mention}: Someone must accept your previous game before you can start another')
             return
-        if amount <= self.min_buy_in and amount > self.max_buy_in:
+        if amount <= self.min_buy_in or amount > self.max_buy_in:
             await ctx.send(f"{ctx.author.mention}: Games must be between {self.min_buy_in} and {self.max_buy_in} GRLC")
             return
         balance = self.grlc.get_balance(ctx.author.id)
@@ -145,12 +145,13 @@ class DiceCog:
             # then the game amount is moved from the loser to winner
 
             self.grlc.move_between_accounts(ctx.author.id, self.bot.bot_id, fee + row['value'])
-            self.grlc.move_between_accounts(self.bot_id, winner.id, row['value'])
-            msg += "{} wins {} GRLC!".format(winner.mention, row['value'])
+            self.grlc.move_between_accounts(self.bot.bot_id, winner.id, row['value'])
+            bread = choice(['bread', 'french_bread', 'stuffed_flatbread', 'grlc'])
+            msg += "{} wins {} GRLC! :{}:".format(winner.mention, row['value'], bread)
             await ctx.send(msg)
 
     @commands.command()
-    async def cancel(self, ctx):
+    async def canceldice(self, ctx):
         """
         Cancel your current game
         :param ctx:
@@ -165,7 +166,7 @@ class DiceCog:
         self.conn.commit()
         fee = game['value'] * self.bot.bot_fee
         self.grlc.move_between_accounts(self.bot.bot_id, ctx.author.id, fee + game['value'])
-        await ctx.send(f"{ctx.author.mention} cancelled and refunded game worth {game['value'] + {fee}}")
+        await ctx.send(f"{ctx.author.mention} cancelled and refunded game worth {game['value']} + {fee}")
 
     def get_current_game(self, id):
         c = self.conn.cursor()
