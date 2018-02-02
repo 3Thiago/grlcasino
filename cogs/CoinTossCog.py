@@ -2,9 +2,10 @@ import discord
 from discord.ext import commands
 from random import choice
 import asyncio
+from .BaseCog import BaseCog
 
 
-class CoinTossCog:
+class CoinTossCog(BaseCog):
     min_buy_in = 0.01
     max_buy_in = 10
     channel_id = 408497113857785868
@@ -59,15 +60,14 @@ class CoinTossCog:
         if amount < self.min_buy_in or amount > self.max_buy_in:
             await ctx.send(f"{ctx.author.mention}: Games must be between {self.min_buy_in} and {self.max_buy_in} GRLC")
             return
-        balance = self.grlc.get_balance(ctx.author.id)
         fee = self.bot.bot_fee * amount
-        if balance <= amount + fee:
-            await ctx.send("{}: You have insufficient GRLC ({} + {} fee)".format(ctx.author.mention, balance, fee))
-        else:
-            c.execute("INSERT INTO headstails VALUES (?, ?, ?, ?, ?)",
+        if await self.check_balance(amount, ctx):
+            c.execute("INSERT INTO headstails VALUES (?, ?, ?, ?, ?, ?)",
                       (ctx.author.id, None, bet, None, None, amount))
+            self.conn.commit()
             self.grlc.move_between_accounts(ctx.author.id, self.bot.bot_id, amount + fee)
-            await ctx.send(f"{ctx.author.mention} predicted {bet} with a value of {amount}")
+            await ctx.send(
+                f"{ctx.author.mention} predicted {bet} with a value of {amount}, someone must accept with $toss {ctx.author.mention}")
 
     @commands.command()
     async def toss(self, ctx, user: discord.User):
@@ -81,31 +81,32 @@ class CoinTossCog:
         # check if the user already has a game in progress
         c = self.conn.cursor()
         game = self.get_current_game(user.id)
+        if user.id == ctx.author.id:
+            await ctx.send(f"{ctx.author.mention} you can't accept your own game")
+            return
         if game is None:
-            await ctx.send(f"{ctx.author.id} that user no current games")
+            await ctx.send(f"{ctx.author.mention} that user no current games")
             return
         amount = game['amount']
-        balance = self.grlc.get_balance(ctx.author.id)
         fee = self.bot.bot_fee * amount
-        if balance <= amount + fee:
-            await ctx.send("{}: You have insufficient GRLC ({} + {} fee)".format(ctx.author.mention, balance, fee))
+        if not self.check_balance(amount, ctx):
             return
         if game['tossA'] == 'H':
             roll_b = 'T'
         else:
             roll_b = 'H'
-        self.grlc.move_between_accounts(ctx.author.id, self.bot.bot_id, fee)
+        self.grlc.move_between_accounts(ctx.author.id, self.bot.bot_id, fee + amount)
         roll = choice(['H', 'T'])
         if roll == game['tossA']:
             winner = game['userIdA']
         else:
             winner = game['userIdB']
         winner = self.bot.get_user(winner)
-        c.execute("UPDATE TABLE headstails SET userIdB = ?, tossB = ?, winnerUserId = ? WHERE rowid = ?",
+        c.execute("UPDATE headstails SET userIdB = ?, tossB = ?, winnerUserId = ? WHERE rowid = ?",
                   (ctx.author.id, roll_b, winner.id, game['rowid']))
         self.conn.commit()
-        msg = f"{ctx.author.mention} the coin landed on {roll}, {winner.mention} wins {amount} GRLC"
-        self.grlc.move_between_accounts(self.bot.bot_id, winner.id, amount)
+        msg = f"{ctx.author.mention} the coin landed on {roll}, {winner.mention} wins {amount} GRLC {self.grlc_emoji}"
+        self.grlc.move_between_accounts(self.bot.bot_id, winner.id, amount * 2)
         print(msg)
         await ctx.send(msg)
 
@@ -118,14 +119,14 @@ class CoinTossCog:
         """
         game = self.get_current_game(ctx.author.id)
         if game is None:
-            await ctx.send(f"{ctx.author.id} you have no game to cancel")
+            await ctx.send(f"{ctx.author.mentionH} you have no game to cancel")
             return
         c = self.conn.cursor()
-        c.execute("DELETE FROM main.dice WHERE rowid = ?", (game['rowid'],))
+        c.execute("DELETE FROM main.headstails WHERE rowid = ?", (game['rowid'],))
         self.conn.commit()
-        fee = game['value'] * self.bot.bot_fee
+        fee = game['amount'] * self.bot.bot_fee
         self.grlc.move_between_accounts(self.bot.bot_id, ctx.author.id, fee + game['value'])
-        await ctx.send(f"{ctx.author.mention} cancelled and refunded game worth {game['value']} + {fee}")
+        await ctx.send(f"{ctx.author.mention} cancelled and refunded game worth {game['amount']} + {fee}")
 
     def get_current_game(self, userId):
         c = self.conn.cursor()

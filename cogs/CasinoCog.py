@@ -1,9 +1,12 @@
 import discord
 from discord.ext import commands
 import asyncio
+from .BaseCog import BaseCog
 
-class CasinoCog:
+
+class CasinoCog(BaseCog):
     channel_id = 408431681305837570
+
     def __init__(self, bot):
         self.bot = bot
         self.grlc = bot.grlc
@@ -50,7 +53,8 @@ class CasinoCog:
                 losses += 1
                 lost_grlc += row['value']
         earnings = won_grlc - lost_grlc
-        await ctx.send(f"Stats for {ctx.author.mention}:\n```\nWins: {wins}\nLosses: {losses}\nEarnings: {earnings} GRLC\n```")
+        await ctx.send(
+            f"Stats for {ctx.author.mention}:\n```\nWins: {wins}\nLosses: {losses}\nEarnings: {earnings} GRLC\n```")
 
     @commands.command(description="Show your sending address")
     async def address(self, ctx):
@@ -88,7 +92,7 @@ class CasinoCog:
         channel = self.bot.get_channel(self.channel_id)
         balance = self.grlc.get_balance(ctx.author.id)
         await ctx.message.delete()
-        await channel.send("{} balance is: {} GRLC :grlc:".format(ctx.author.mention, balance))
+        await channel.send("{} balance is: {} GRLC {}".format(ctx.author.mention, balance, self.grlc_emoji))
 
     @commands.command(name='reload', hidden=True)
     @commands.is_owner()
@@ -96,7 +100,7 @@ class CasinoCog:
         """Command which Reloads a Module.
         Remember to use dot path. e.g: cogs.owner"""
         await ctx.message.delete()
-        cog = "cogs." + cog
+        cog = "cogs." + cog + "Cog"
         try:
             self.bot.unload_extension(cog)
             self.bot.load_extension(cog)

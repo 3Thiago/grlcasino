@@ -1,4 +1,5 @@
-from jsonrpc_requests import Server
+from jsonrpc_requests import Server, jsonrpc
+import json
 
 """
 garlicoin-cli wrapper functions for:
@@ -38,4 +39,9 @@ class GarlicoinWrapper:
         return self.srv.sendfrom(str(userIdSrc), grlcDest, amount)
 
     def move_between_accounts(self, userIdSrc, userIdDest, amount):
-        return self.srv.move(str(userIdSrc), str(userIdDest), amount)
+        try:
+            return self.srv.move(str(userIdSrc), str(userIdDest), round(amount, 8))
+        except jsonrpc.TransportError as e:
+            err = json.loads(e.server_response.content)['error']['message']
+            msg = f"{ctx.author.mention} ERROR: {err}: {e.request.body['params']}"
+            return msg

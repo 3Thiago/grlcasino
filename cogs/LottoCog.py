@@ -4,9 +4,10 @@ from random import randint
 from numpy.random import choice
 import numpy as np
 import sqlite3
+from .BaseCog import BaseCog
 
 
-class LottoCog:
+class LottoCog(BaseCog):
     min_buy_in = 0.1
     max_buy_in = 10
 

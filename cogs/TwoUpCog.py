@@ -2,9 +2,10 @@ import discord
 from discord.ext import commands
 from random import choice
 import asyncio
+from .BaseCog import BaseCog
 
 
-class TwoUpCog:
+class TwoUpCog(BaseCog):
     min_buy_in = 0.05
     max_buy_in = 10
     channel_id = 408431187011567616
@@ -83,13 +84,11 @@ class TwoUpCog:
         if amount <= self.min_buy_in or amount > self.max_buy_in:
             await ctx.send(f"{ctx.author.mention}: Games must be between {self.min_buy_in} and {self.max_buy_in} GRLC")
             return
-        balance = self.grlc.get_balance(ctx.author.id)
         fee = self.bot.bot_fee * amount
-        if balance <= amount + fee:
-            await ctx.send("{}: You have insufficient GRLC ({} + {} fee)".format(ctx.author.mention, balance, fee))
-        else:
+        if await self.check_balance(amount, ctx):
             c.execute("INSERT INTO twoup_entries VALUES (?, ?, ?, ?)", (bet, game['rowid'], amount, ctx.author.id))
-            self.grlc.move_between_accounts(ctx.author.id, self.bot.bot_id, amount)
+            self.conn.commit()
+            self.grlc.move_between_accounts(ctx.author.id, self.bot.bot_id, amount + fee)
             await ctx.send(f"{ctx.author.mention} received bet of {amount} for {bet}")
 
     @commands.command()

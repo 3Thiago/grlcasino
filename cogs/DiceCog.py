@@ -1,11 +1,13 @@
 import discord
+import jsonrpc_requests
 from discord.ext import commands
 from random import randint, choice
 from datetime import datetime
 import asyncio
+from .BaseCog import BaseCog
 
 
-class DiceCog:
+class DiceCog(BaseCog):
     dice = {
         '1': '⚀',
         '2': '⚁',
@@ -44,13 +46,11 @@ class DiceCog:
         if amount <= self.min_buy_in or amount > self.max_buy_in:
             await ctx.send(f"{ctx.author.mention}: Games must be between {self.min_buy_in} and {self.max_buy_in} GRLC")
             return
-        balance = self.grlc.get_balance(ctx.author.id)
         fee = amount * self.bot.bot_fee
 
-        if balance <= amount + fee:
-            await ctx.send("{}: You have insufficient GRLC ({} + {} fee)".format(ctx.author.mention, balance, fee))
-        else:
+        if await self.check_balance(amount, ctx):
             self.grlc.move_between_accounts(ctx.author.id, self.bot.bot_id, fee + amount)
+
             c = self.conn.cursor()
             rollA = self._roll_string()
             rollB = self._roll_string()
@@ -107,12 +107,8 @@ class DiceCog:
             return
         # if the user is not signed up, they can't play
         # print(row.keys())
-        player_b_balance = self.grlc.get_balance(ctx.author.id)
         fee = row['value'] * self.bot.bot_fee
-        if player_b_balance < row['value'] + fee:
-            await ctx.send(
-                f'{ctx.author.mention} you have insufficient funds to play ({row["value"]} GRLC + {fee} fee). You have {player_b_balance} GRLC')
-        else:
+        if await self.check_balance(row['value'], ctx):
             # Play the game!!!!
             # put the playerB in there
             def str2score(score):
@@ -145,7 +141,7 @@ class DiceCog:
             # then the game amount is moved from the loser to winner
 
             self.grlc.move_between_accounts(ctx.author.id, self.bot.bot_id, fee + row['value'])
-            self.grlc.move_between_accounts(self.bot.bot_id, winner.id, row['value'])
+            self.grlc.move_between_accounts(self.bot.bot_id, winner.id, row['value'] * 2)
             bread = choice(['bread', 'french_bread', 'stuffed_flatbread', 'grlc'])
             msg += "{} wins {} GRLC! :{}:".format(winner.mention, row['value'], bread)
             await ctx.send(msg)
