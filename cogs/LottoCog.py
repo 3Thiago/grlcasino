@@ -1,9 +1,11 @@
 import discord
 from discord.ext import commands
 from random import randint
+from datetime import datetime, timedelta
 from numpy.random import choice
 import numpy as np
-import sqlite3
+import humanize
+import asyncio
 from .BaseCog import BaseCog
 
 
@@ -19,61 +21,70 @@ class LottoCog(BaseCog):
         self.conn = bot.conn
         self.dbname = bot.dbname
         c = self.conn.cursor()
-        c.exucute("CREATE TABLE IF NOT EXISTS main.lotto_games (current INT, winnerUserId INT)")
+        c.execute("CREATE TABLE IF NOT EXISTS main.lotto_games (current INT, winnerUserId INT, drawTime TIMESTAMP)")
         c.execute("CREATE TABLE IF NOT EXISTS main.lotto_entries (userId INT , amount REAL, gameId INT)")
         self.conn.commit()
 
-    def lotto_restart(self, conn):
-        """
-        Create a game of lotto if none exists,
-
-        """
-        c = conn.cursor()
-        c.execute("UPDATE lotto_games SET current = 0 WHERE current = 1")
-        c.execute("INSERT INTO lotto_games VALUES (1, ?, ?)", (None, datetime.now() + timedelta(hours=1)))
-        conn.commit()
-        c.execute("SELECT rowid, * FROM lotto_games WHERE current = 1")
-        return c.fetchone()
-
-    async def lotto_winner(self):
+    async def lotto_winner(self, ctx, gameId):
         c = self.conn.cursor()
         entrants = []
         amounts = []
-        game = self.get_current_game()
-        for row in c.execute("SELECT * FROM lotto_entries WHERE gameId = ?", (game['rowid'],)):
+        for row in c.execute("SELECT * FROM lotto_entries WHERE gameId = ?", (gameId,)):
             entrants.append(row['userId'])
             amounts.append(row['amount'])
         if len(amounts) > 0:
 
             amounts = np.array(amounts)
             value = amounts.sum()
-            winnerId = choice(entrants, p=value / amounts)
-            c.execute("UPDATE lotto_games SET winnerId = ?", (winnerId,))
-            self.conn.commit()
-            # move the coins from the losers to the winnerId
-            for idx, playerId in enumerate(entrants):
-                if playerId != winnerId:
-                    self.grlc.move_between_accounts(playerId, winnerId, amounts[idx])
-            bot_fee = value * self.fee
-            value -= bot_fee
-            self.grlc.move_between_accounts(winnerId, self.bot.accountID, bot_fee)
-            return winnerId, value
+            winnerId = choice(entrants, p=amounts / value)
+            c.execute('UPDATE lotto_games SET current = 0, winnerUserId = ? WHERE rowid = ?', (winnerId, gameId,))
+            msg = "Odds are: {}".format(','.join(self.bot.get_user(x).mention + f": {round(y*100,2)}%" for x,y in zip(entrants, amounts/value)))
+            self.grlc.move_between_accounts(self.bot.bot_id, winnerId, value)
+            winner = self.bot.get_user(winnerId)
+            msg += f"{winner.mention} wins {round(value, 3)} GRLC, congratulations! {self.grlc_emoji}"
+            await ctx.send(msg)
         else:
-            return None, 0
+            await ctx.send("No entries received for lotto!")
+            c.execute('UPDATE lotto_games SET current = 0, winnerUserId = ? WHERE rowid = ?', (None, gameId))
+        self.conn.commit()
+
+    @commands.command()
+    async def lotto(self, ctx):
+        """
+        Start a lottery if non exists
+        :param ctx:
+        :return:
+        """
+        game = self.get_current_game()
+        if game is None:
+            # start a new game
+            c = self.conn.cursor()
+            delta = timedelta(minutes=1)
+            draw_time = datetime.now() + delta
+            c.execute("INSERT INTO lotto_games VALUES (1, ?, ?)", (None, draw_time))
+            gameId = c.lastrowid
+            self.conn.commit()
+            await ctx.send("A lottery has begun! Enter with `$enterlotto amount`, will be drawn {}".format(
+                humanize.naturaltime(draw_time)))
+            await asyncio.sleep(int(delta.total_seconds()))
+            await self.lotto_winner(ctx, gameId)
+
+        else:
+            await self.lottopot(ctx, game)
 
     @commands.command()
     async def enterlotto(self, ctx, *, amount: float):
         """
-        Start a dicegame, another player must accept it
+        Enter the current lottery
         :param message:
         :return:
         """
         # check if the user already has a game in progress
-        current_game = self.get_current_game(self.conn)
+        current_game = self.get_current_game()
         if current_game is None:
             await ctx.send(f'{ctx.author.mention}: There\'s no lottery running at the moment')
             return
-        if amount <= self.min_buy_in and amount > self.max_buy_in:
+        if amount <= self.min_buy_in or amount > self.max_buy_in:
             await ctx.send(
                 f"{ctx.author.mention}: Entries must be between {self.min_buy_in} and {self.max_buy_in} GRLC")
             return
@@ -82,35 +93,38 @@ class LottoCog(BaseCog):
         if balance < amount + fee:
             await ctx.send("{}: You have insufficient GRLC ({} + {} fee)".format(ctx.author.mention, balance, fee))
         else:
+            c = self.conn.cursor()
             c.execute("INSERT INTO lotto_entries VALUES (?, ?, ?)",
                       (ctx.author.id,
                        amount,
-                       current_game.rowid)
+                       current_game['rowid'])
                       )
             self.conn.commit()
+            self.grlc.move_between_accounts(ctx.author.id, self.bot.bot_id, amount + fee)
             msg = "{} your entry {} GRLC has been received!".format(ctx.author.mention, amount)
             await ctx.send(msg)
 
-    @commands.command()
-    async def lottopot(self, ctx):
+    async def lottopot(self, ctx, game):
         """
         Show the pot and end time for the current lottery
         """
-        game = self.get_current_game()
         total = 0
         c = self.conn.cursor()
-        for row in c.execute("SELECT * FROM main.lotto_entries WHERE game = ?", (game['rowid'],)):
+        msg = "Current entries to the lottery are:\n"
+        for row in c.execute("SELECT * FROM main.lotto_entries WHERE gameId = ?", (game['rowid'],)):
+            user = self.bot.get_user(row['userId'])
+            msg += f"{user.mention}: {row['amount']} GRLC\n"
             total += row['amount']
-        msg = "Current lottery has a pot of {} and will be draw in {}".format(total, datetime.now() - game.drawtime)
+        msg += "Current lottery has a pot of {} GRLC and will be drawn {}".format(round(total, 8), humanize.naturaltime(
+            datetime.now() - game['drawtime']))
         await ctx.send(msg)
+        if datetime.now() > game['drawTime']:
+            await self.lotto_winner(ctx, game['rowid'])
 
     def get_current_game(self):
         c = self.conn.cursor()
         c.execute("SELECT rowid, * FROM main.lotto_games WHERE current = 1")
-        game = c.fetchone()
-        if game is None:
-            game = self.lotto_restart()
-        return game
+        return c.fetchone()
 
 
 def setup(ctx):

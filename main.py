@@ -57,7 +57,7 @@ async def on_ready():
 extensions = [
     'cogs.DiceCog',
     'cogs.CasinoCog',
-    # 'cogs.LottoCog',
+    'cogs.LottoCog',
     'cogs.TwoUpCog',
     'cogs.CoinTossCog'
 ]
