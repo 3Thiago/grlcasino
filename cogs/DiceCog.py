@@ -28,8 +28,13 @@ class DiceCog(BaseCog):
     @staticmethod
     def _roll_string():
         return "{}{}".format(randint(1, 6), randint(1, 6))
+        
+    @staticmethod
+    def str2score(score):
+        return sum([int(x) for x in score])
 
-    @commands.command()
+
+    @commands.command(aliases=['roll'])
     async def start(self, ctx, *, amount: float):
         """
         Start a dicegame for a specified amount: $start 0.75
@@ -54,7 +59,7 @@ class DiceCog(BaseCog):
             c = self.conn.cursor()
             rollA = self._roll_string()
             rollB = self._roll_string()
-            while rollA == rollB:
+            while self.str2score(rollA) == self.str2score(rollB):
                 rollB = self._roll_string()
 
             c.execute("INSERT INTO dice VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -81,10 +86,15 @@ class DiceCog(BaseCog):
             return
         c = self.conn.cursor()
         msg = "Current games are:\n"
+        rows = 0
         for row in c.execute("SELECT * FROM main.dice WHERE winnerUserId IS NULL"):
             user = self.bot.get_user(row['userIdA'])
             msg += f"{user.mention} {row['value']}\n"
-        await ctx.send(msg)
+            rows += 1
+        if rows == 0:
+            await ctx.send(f"{ctx.author.mention} There are no games at the moment. Start one using $start 0.5")
+        else:
+            await ctx.send(msg)
 
     @commands.command()
     async def accept(self, ctx, *, user: discord.User):
@@ -111,14 +121,12 @@ class DiceCog(BaseCog):
         if await self.check_balance(row['value'], ctx):
             # Play the game!!!!
             # put the playerB in there
-            def str2score(score):
-                return sum([int(x) for x in score])
 
             def str2emoji(score):
                 return "{}{}".format(self.dice[score[0]], self.dice[score[1]])
 
-            a_score = str2score(row['rollA'])
-            b_score = str2score(row['rollB'])
+            a_score = self.str2score(row['rollA'])
+            b_score = self.str2score(row['rollB'])
             a_user = ctx.bot.get_user(row['userIdA'])
             msg = "{} rolled: {}, {} rolled: {}, ".format(
                 a_user.mention,
