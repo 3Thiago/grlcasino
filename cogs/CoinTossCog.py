@@ -89,7 +89,7 @@ class CoinTossCog(BaseCog):
             return
         amount = game['amount']
         fee = self.bot.bot_fee * amount
-        if not self.check_balance(amount, ctx):
+        if not await self.check_balance(amount, ctx):
             return
         if game['tossA'] == 'H':
             roll_b = 'T'
@@ -119,13 +119,13 @@ class CoinTossCog(BaseCog):
         """
         game = self.get_current_game(ctx.author.id)
         if game is None:
-            await ctx.send(f"{ctx.author.mentionH} you have no game to cancel")
+            await ctx.send(f"{ctx.author.mention} you have no game to cancel")
             return
         c = self.conn.cursor()
         c.execute("DELETE FROM main.headstails WHERE rowid = ?", (game['rowid'],))
         self.conn.commit()
         fee = game['amount'] * self.bot.bot_fee
-        self.grlc.move_between_accounts(self.bot.bot_id, ctx.author.id, fee + game['value'])
+        self.grlc.move_between_accounts(self.bot.bot_id, ctx.author.id, fee + game['amount'])
         await ctx.send(f"{ctx.author.mention} cancelled and refunded game worth {game['amount']} + {fee}")
 
     def get_current_game(self, userId):

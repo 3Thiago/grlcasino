@@ -88,7 +88,7 @@ class LottoCog(BaseCog):
             await ctx.send(
                 f"{ctx.author.mention}: Entries must be between {self.min_buy_in} and {self.max_buy_in} GRLC")
             return
-        balance = self.grlc.get_balance(ctx.author.id)
+        balance = await self.grlc.get_balance(ctx.author.id)
         fee = amount * self.bot.bot_fee
         if balance < amount + fee:
             await ctx.send("{}: You have insufficient GRLC ({} + {} fee)".format(ctx.author.mention, balance, fee))
